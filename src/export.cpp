@@ -16,18 +16,24 @@ extern "C"{
     int server_connect_count(){
         return server->connect_count();
     }
-    void server_world_sync(char* buf,int size){
+    void server_send_binary(char* buf,int size){
         std::string data;
         data.reserve(size);
         for(int i = 0;i<size;++i){
             data.push_back(buf[i]);
         }
-        server->each_connect([&data](p_connect_server& a){
+        server->each_sock([&data](boost::asio::ip::tcp::socket& a){
             OPacket op;
             op.head = packet_head;
-            op.type = (int)packet_type::world_sync;
+            op.type = (int)packet_type::send_binary;
             op.write_data(data);
-            a.get_sock() << op;
+            a << op;
+        });
+    }
+    void server_data_proc_register(sock_id id,data_handler handler){
+        std::cout << "Register" << std::endl;
+        server->use_connect(id,[handler](Server_Connect& connect){
+            connect.data_proc = handler;
         });
     }
     void server_delete(){
@@ -45,10 +51,24 @@ extern "C"{
         }
         return 0;
     }
-    void client_world_sync_proc_register(client_world_sync_handler handler){
+    void client_send_binary(char* buf,int size){
+        std::string data;
+        data.reserve(size);
+        for(int i = 0;i<size;++i){
+            data.push_back(buf[i]);
+        }
+        OPacket op;
+        op.head = packet_head;
+        op.type = (int)packet_type::send_binary;
+        op.write_data(data);
+        client->use_connect([&op](Client_Connect& connect){
+            connect.server << op;
+        });
+    }
+    void client_data_proc_register(data_handler handler){
         std::cout << "Register" << std::endl;
-        client->use_p_connect([handler](Client_Connect& connect){
-            connect.world_sync_proc = handler;
+        client->use_connect([handler](Client_Connect& connect){
+            connect.data_proc = handler;
         });
     }
     void client_delete(){

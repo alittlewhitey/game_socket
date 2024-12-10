@@ -76,12 +76,13 @@ void operator<<(boost::asio::ip::tcp::socket& sock,const OPacket& p){
 }
 void operator>>(boost::asio::ip::tcp::socket& sock,IPacket& p){
     try{
-		unsigned char buffer[p.get_bufSize()];
+		int bufSize = p.get_bufSize();
+		unsigned char buffer[bufSize];
 		for(auto a : buffer){
 			a = '\0';
 		}
         if(sock.is_open())
-			sock.receive(boost::asio::buffer(buffer,p.get_bufSize()));
+			sock.receive(boost::asio::buffer(buffer,bufSize));
         int head = 0,type = 0,size = 0;
         if(IsLittleEndian()){
             for(int i = 0;i!=4;++i){
@@ -96,10 +97,25 @@ void operator>>(boost::asio::ip::tcp::socket& sock,IPacket& p){
                 size |= static_cast<unsigned int>(buffer[8+i]) << 8*i;
             }
         }
-        std::string str;
+		std::string str;
 		str.resize(size);
-		for(int i = 0; i!=size;++i){
-			str[i]=buffer[i+12];
+		if(size <= bufSize-12){
+			for(int i = 0; i!=size;++i){
+				str[i]=buffer[i+12];
+			}
+		}else{
+			int index = 0;
+			for(int i = 0; i!=bufSize-12;++i){
+				str[i]=buffer[i+12];
+				++index;
+			}
+			while((index < size)&&sock.is_open()){
+				size_t sz = sock.receive(boost::asio::buffer(buffer,bufSize));
+				for(int i = 0; i!=sz;++i){
+					str[index]=buffer[i];
+					++index;
+				}
+			}
 		}
         p.pData.data = str;
         p.head = head;

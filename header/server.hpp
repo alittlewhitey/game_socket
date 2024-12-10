@@ -61,13 +61,13 @@ enum class packet_type: int{
         data_size: int
         world_data: byte[data_size]
     */
-    world_sync = 5101,
+    send_binary = 5101,
 
     /*
             // means client get signal
         void
     */
-    world_sync_back = 4101
+    received_binary = 4101
 };
 typedef int sock_id;
 
@@ -96,6 +96,7 @@ public:
     std::jthread start_check;
     bool start_checked = 0;
 
+    std::function<void(char*,int)> data_proc = [](char*,int){};
 
     bool is_blocking(){
         return blocking;
@@ -147,11 +148,11 @@ public:
         alive = 0;
         return 0;
     }
-    void send_world_sync(std::string world_data){
+    void send_binary(std::string data){
         OPacket op;
         op.head = packet_head;
-        op.type = (int)packet_type::world_sync;
-        op.write_data(world_data);
+        op.type = (int)packet_type::send_binary;
+        op.write_data(data);
         client << op;
     }
 
@@ -191,10 +192,17 @@ public:
             sock_error(logger,(sock_errno)code);
             alive = 0;
         }break;
-        case (int)packet_type::world_sync:{
-            clipack();
+        case (int)packet_type::send_binary:{
+            std::string data = packet.read_data();
+            std::cout << data << std::endl;
+            data_proc((char*)data.c_str(),data.size());
+            std::cout << "bbb" << std::endl;
+            OPacket op;
+            op.head = packet_head;
+            op.type = (int)packet_type::received_binary;
+            client << op;
         }break;
-        case (int)packet_type::world_sync_back:{
+        case (int)packet_type::received_binary:{
 
         }break;
         }
@@ -226,9 +234,6 @@ public:
 class Client_Connect{
     std::atomic<bool> blocking = 0;
     std::atomic<bool> alive = 1;
-    std::mutex data_buf_lock;
-    constexpr static const int data_buf_size = 10240;
-    char data_buf[data_buf_size];
     const std::chrono::system_clock::time_point connect_start_time;
 public:
     Client_Connect(boost::asio::ip::tcp::socket& server):server(server),connect_start_time(std::chrono::system_clock::now()){}
@@ -271,7 +276,7 @@ public:
             }
         });
     }
-    std::function<void(char*,int)> world_sync_proc = [](char*,int){};
+    std::function<void(char*,int)> data_proc = [](char*,int){};
     void handle_packet(IPacket packet){
         if(!check_head(packet.head))
             return;
@@ -303,21 +308,18 @@ public:
             sock_error(logger,(sock_errno)code);
             alive = 0;
         }break;
-        case (int)packet_type::world_sync:{
+        case (int)packet_type::send_binary:{
             std::string data = packet.read_data();
             std::cout << data << std::endl;
-            data_buf_lock.lock();
-            strncpy(data_buf,data.c_str(),data_buf_size);
-            world_sync_proc(data_buf,data.size());
-            data_buf_lock.unlock();
-            std::cout << "aaa" << std::endl;
+            data_proc((char*)data.c_str(),data.size());
+            std::cout << "ccc" << std::endl;
             OPacket op;
             op.head = packet_head;
-            op.type = (int)packet_type::world_sync_back;
+            op.type = (int)packet_type::received_binary;
             server << op;
         }break;
-        case (int)packet_type::world_sync_back:{
-            serpack();
+        case (int)packet_type::received_binary:{
+            
         }break;
         }
     }
@@ -358,6 +360,9 @@ public:
     }
     boost::asio::ip::tcp::socket& get_sock(){
         return *sock;
+    }
+    Server_Connect& get_connect(){
+        return *connect;
     }
     void run(std::function<void(sock_id)> freeRes){
         running = 1;
@@ -404,10 +409,21 @@ public:
     int connect_count(){
         return p_connects.size();
     }
-    void each_connect(std::function<void(p_connect_server&)> handler){
+    void each_connect(std::function<void(Server_Connect&)> handler){
         std::for_each(std::execution::par_unseq,p_connects.begin(),p_connects.end(),[handler](decltype(*p_connects.begin())& item){
-            handler(item.second);
+            handler(item.second.get_connect());
         });
+    }
+    void use_connect(sock_id id,std::function<void(Server_Connect&)> handler){
+        handler(p_connects.at(id).get_connect());
+    }
+    void each_sock(std::function<void(boost::asio::ip::tcp::socket&)> handler){
+        std::for_each(std::execution::par_unseq,p_connects.begin(),p_connects.end(),[handler](decltype(*p_connects.begin())& item){
+            handler(item.second.get_sock());
+        });
+    }
+    void use_sock(sock_id id,std::function<void(boost::asio::ip::tcp::socket&)> handler){
+        handler(p_connects.at(id).get_sock());
     }
     void close_connect(sock_id id){
         connects_lock.lock();
@@ -495,7 +511,7 @@ public:
         }
         return 1;
     }
-    void use_p_connect(std::function<void(Client_Connect&)> handler){
+    void use_connect(std::function<void(Client_Connect&)> handler){
         handler(*p_connect);
     }
     void close_connect(){

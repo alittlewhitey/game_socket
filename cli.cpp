@@ -11,7 +11,7 @@ int main(){
     bool b = client_connect("127.0.0.1");
     if(!b)
         return -1;
-    client_world_sync_proc_register(f);
+    client_data_proc_register(f);
     while(!get){
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }

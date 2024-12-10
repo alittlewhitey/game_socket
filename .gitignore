@@ -11,5 +11,6 @@ build/
 # Output files
 out/
 
-# test
+# Project Logs
 logs.txt
+packet_log.txt

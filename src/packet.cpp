@@ -1,5 +1,18 @@
 #include"packet.hpp"
 
+std::ofstream packet_logger("packet_log.txt",std::ios_base::app|std::ios_base::out);
+bool RefreshLogFile(){
+	try{
+		packet_logger.close();
+		packet_logger.open("packet_log.txt");
+		packet_logger.close();
+		packet_logger.open("packet_log.txt",std::ios_base::app|std::ios_base::out);
+	}catch(std::exception& e){
+		packet_logger << e.what() << std::endl;
+		return 0;
+	}
+	return 1;
+}
 bool IsLittleEndian(){
     int a = 0x1234;
     char c = *(char*)&a;
@@ -7,7 +20,6 @@ bool IsLittleEndian(){
         return true;
     return false;
 }
-
 Packet::PacketData::DataIterator Packet::PacketData::operator[](int index){
 	return DataIterator(*this,index);
 }
@@ -69,9 +81,9 @@ void operator<<(boost::asio::ip::tcp::socket& sock,const OPacket& p){
 			sock.send(boost::asio::buffer(p2.pData.data));
 		}
 	}catch(boost::system::system_error e){
-		std::cerr << __FILE__ << '\t' << __LINE__ << '\t' << e.what() << std::endl;
+		packet_logger << "Packet: " << '\t' << __LINE__ << '\t' << e.what() << std::endl;
 	}catch(std::exception& e){
-		std::cerr << e.what() << std::endl;
+		packet_logger << e.what() << std::endl;
 	}
 }
 void operator>>(boost::asio::ip::tcp::socket& sock,IPacket& p){
@@ -122,8 +134,8 @@ void operator>>(boost::asio::ip::tcp::socket& sock,IPacket& p){
         p.type = type;
         p.size = size;
     }catch(boost::system::system_error& e){
-		std::cerr << __FILE__ << '\t' << __LINE__ << '\t' << e.what() << std::endl;
+		packet_logger << "Packet: " << '\t' << __LINE__ << '\t' << e.what() << std::endl;
 	}catch(std::exception& e){
-		std::cerr << e.what() << std::endl;
+		packet_logger << e.what() << std::endl;
 	}
 }

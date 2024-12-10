@@ -126,7 +126,6 @@ public:
             op.head = packet_head;
             op.type = (int)packet_type::heart_beat;
             op.write<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()-process_start_time).count());
-            std::cout << "send heart beat" << std::endl;
             client << op;
             ++heart_beat_wait_times;
             std::this_thread::sleep_for(timeout);
@@ -159,7 +158,6 @@ public:
     void handle_packet(IPacket packet){
         if(!check_head(packet.head))
             return;
-        std::cout << "get packet :" << (int)packet.type << std::endl;
         switch(packet.type){
         case (int)packet_type::heart_beat:{
             clipack();
@@ -171,7 +169,6 @@ public:
         }break;
         case (int)packet_type::register_connect:{
             heart_beat_thread = std::jthread([this](const std::stop_token token){
-                std::cout << "Heart beat start" << std::endl;
                 heart_beating = 1;
                 this->heart_beat_proc(token);
                 heart_beating = 0;
@@ -194,9 +191,7 @@ public:
         }break;
         case (int)packet_type::send_binary:{
             std::string data = packet.read_data();
-            std::cout << data << std::endl;
             data_proc((char*)data.c_str(),data.size());
-            std::cout << "bbb" << std::endl;
             OPacket op;
             op.head = packet_head;
             op.type = (int)packet_type::received_binary;
@@ -208,7 +203,6 @@ public:
         }
     }
     void run(const std::stop_token token){
-        std::cout << "Run" << std::endl;
         start_check = std::jthread([this](std::stop_token token){
             std::this_thread::sleep_for(2*timeout);
             if(token.stop_requested()){
@@ -282,7 +276,6 @@ public:
             return;
         switch(packet.type){
         case (int)packet_type::heart_beat:{
-            std::cout << "Heart Beat" << std::endl;
             heart_beating = 1;
             uint64_t a = packet.read<uint64_t>();
             OPacket op;
@@ -310,9 +303,7 @@ public:
         }break;
         case (int)packet_type::send_binary:{
             std::string data = packet.read_data();
-            std::cout << data << std::endl;
             data_proc((char*)data.c_str(),data.size());
-            std::cout << "ccc" << std::endl;
             OPacket op;
             op.head = packet_head;
             op.type = (int)packet_type::received_binary;

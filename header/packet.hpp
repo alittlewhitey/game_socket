@@ -1,10 +1,13 @@
 #ifndef PACKET_
 #define PACKET_
 #include<iostream>
+#include<fstream>
 #include<string>
 #include<boost/asio.hpp>
 
 bool IsLittleEndian();
+extern std::ofstream packet_logger;
+bool RefreshLogFile();
 struct Packet{
 protected:
 	int bufSize = 1024;
@@ -29,10 +32,10 @@ public:
 			explicit operator T(){
 				//if(index + sizeof(T)>=pData.data.size()){
 				if(index + sizeof(T)>pData.data.size()){
-
-					std::cout << index + sizeof(T) << std::endl;
-					std::cout << pData.data.size() << std::endl;
-					throw std::runtime_error("out of packet");
+					packet_logger << "Packet: Out of range" << std::endl;
+					packet_logger << "Expect index: " << index + sizeof(T) << std::endl;
+					packet_logger << "Packet size: " << pData.data.size() << std::endl;
+					throw std::runtime_error("Packet: Out of range");
 
 				}
 				T result;
@@ -44,7 +47,7 @@ public:
 					for(char i = 0;i!= sizeof(T);++i)
 						*((char*)(&result)+sizeof(T)+i) = pData.data[index+i];
 				}
-				index += sizeof(T);
+				//index += sizeof(T);
 				return result;
 			}
 		};

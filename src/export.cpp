@@ -31,7 +31,6 @@ extern "C"{
         });
     }
     void server_data_proc_register(sock_id id,data_handler handler){
-        std::cout << "Register" << std::endl;
         server->use_connect(id,[handler](Server_Connect& connect){
             connect.data_proc = handler;
         });
@@ -66,7 +65,6 @@ extern "C"{
         });
     }
     void client_data_proc_register(data_handler handler){
-        std::cout << "Register" << std::endl;
         client->use_connect([handler](Client_Connect& connect){
             connect.data_proc = handler;
         });
